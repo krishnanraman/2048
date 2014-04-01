@@ -1,4 +1,4 @@
 2048
 ====
 
-2048 in scala
+2048 in scala, functional shit etc...
