@@ -1,54 +1,94 @@
 import util.{Random=>rnd}
 
 object twentyfortyeight extends App {
-
   type row = List[Int]
   type board = List[row]
 
-  def blank =
-    List.tabulate[row](4)(i=>List.tabulate[Int](4)(j=>0))
+  def blank:board = List.fill[row](4)(List.fill[Int](4)(0))
 
-  def header = List.fill[Char](23)('_').mkString
-  def top = List.fill[Char](23)('-').mkString
+  def dash(top:Boolean=false) = List.fill[Char](23)( if (top) '-' else '_').mkString
 
-  def next(g:board) = {
-    g.flatten.updated(
-      rnd.shuffle(
+  def emptySpot(g:board):Option[Int] = {
+    val spots = rnd.shuffle(
         g.flatten
         .zipWithIndex
         .filter(_._1 == 0)
-        .map(_._2)).head ,
-        if (rnd.nextDouble > 0.9 ) 4 else 2)
+        .map(_._2))
+    if (spots.size > 0) Some(spots.head) else None
+  }
+
+  def next(g:board):board = {
+    val spot = emptySpot(g)
+    if (spot.isDefined) {
+       g.flatten.updated(spot.get,
+       if (rnd.nextDouble > 0.9 ) 4 else 2)
       .grouped(4)
       .toList
+    } else g
   }
 
-  def invariant(g:board) = {
-    require(g.size == 4)
-    g.foreach(i=>require(i.size==4))
-  }
+  def max(g:board):Int = g.flatten.max
 
-  def print(g:board) = {
-    printf("/%s\\\n", top)
+  var moves:Int = 0 // throwaway var to track how many moves we play
+  def print(g:board, direction:String="") = {
+    printf("\n%d.%s\n", { moves += 1; moves} , direction)
+    printf("/%s\\\n", dash(top=true))
     g.foreach{ row =>
       val disp = row map { i => if (i==0) " " else i.toString }
-      printf("|%5s|%5s|%5s|%5s|\n|%s|\n", disp(0), disp(1), disp(2), disp(3), header)
+      printf("|%5s|%5s|%5s|%5s|\n|%s|\n", disp(0), disp(1), disp(2), disp(3), dash())
     }
   }
 
   def slide(r:row) =
-    r./:(List.empty[Int])((l,b) => if (b==0) l else b::l)
+    r./:(List.empty[Int])((l,b) => if (b==0) l else b::l).reverse
 
-  def pad(r:row) =
-    r ++ List.fill[Int](0)(4-r.size)
+  def padRite(r:row) =
+    List.tabulate[Int](4){i=> if (i<r.size) r(i) else 0}
+
+  def padLeft(r:row) = List.fill[Int](4-r.size)(0) ++ r
 
   def add(r:row) =
-    r.tail./:(List(r.head))((l,b) => if(b==l.head) (b+b)::l.tail else b::l)
+    r.tail./:(List(r.head)) {
+      (l,b) => if(b==l.head) (b+b)::l.tail else b::l
+    }.reverse
 
-  def moveLeft = slide _ andThen pad _ andThen add _ andThen pad _
+  def rowLeft = slide _ andThen padRite _ andThen add _ andThen padRite _
 
-  List.range[Int](0,16)./:(blank){(g,i) =>
-    print(g)
-    next(g)
+  def rowRite = slide _ andThen padLeft _ andThen add _ andThen padLeft _
+
+  def start = next(next(next(blank)))
+
+  def pause = Thread.sleep(2000)
+
+  def moveLeft(g:board) = g.map(rowLeft)
+  def printLeft(g:board) = {print(g,"Left"); moveLeft(g)}
+
+  def moveRite(g:board) = g.map(rowRite)
+  def printRite(g:board) = {print(g,"Right"); moveRite(g)}
+
+  def moveUp(g:board) = antiClockwise(moveLeft(antiClockwise(g)))
+  def printUp(g:board) = { print(g,"Up"); moveUp(g) }
+
+  def moveDn(g:board) = clockwise(moveRite(clockwise(g)))
+  def printDn(g:board) = {print(g,"Down"); moveDn(g)}
+
+  def antiClockwise(g:board) = List(3,2,1,0).map {
+    i => g.map { row =>row(i) }
+  }
+
+  def clockwise(g:board) = List(0,1,2,3).map {
+    i=> g.map { row => row(i) }
+  }
+
+  def drdl =  printDn _    andThen next _ andThen
+              printRite _  andThen next _ andThen
+              printDn _    andThen next _ andThen
+              printLeft _  andThen next
+
+  for(i<- 1 to 100) {
+    val boards = Iterator.iterate(start)({pause;drdl;}).takeWhile{g=>emptySpot(g).isDefined}.toList
+    printf("%d\t%d\t%d\n", i,boards.size, max(boards.last))
+    pause
+    moves=0
   }
 }
