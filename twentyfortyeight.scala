@@ -1,5 +1,8 @@
-import util.{Random=>rnd}
-
+/*
+  4 Great Cyclic Blind Strategies see:
+  http://artent.net/2014/03/18/an-ai-for-2048-part-2-cyclic-blind-strategies/
+  Strategies: drur, dldr, drdl, dlul, coded below.
+*/
 object twentyfortyeight extends App {
   type row = List[Int]
   type board = List[row]
@@ -9,7 +12,7 @@ object twentyfortyeight extends App {
   def dash(top:Boolean=false) = List.fill[Char](23)( if (top) '-' else '_').mkString
 
   def emptySpot(g:board):Option[Int] = {
-    val spots = rnd.shuffle(
+    val spots = util.Random.shuffle(
         g.flatten
         .zipWithIndex
         .filter(_._1 == 0)
@@ -21,7 +24,7 @@ object twentyfortyeight extends App {
     val spot = emptySpot(g)
     if (spot.isDefined) {
        g.flatten.updated(spot.get,
-       if (rnd.nextDouble > 0.9 ) 4 else 2)
+       if (util.Random.nextDouble > 0.9 ) 4 else 2)
       .grouped(4)
       .toList
     } else g
@@ -58,7 +61,7 @@ object twentyfortyeight extends App {
 
   def start = next(next(next(blank)))
 
-  def pause = Thread.sleep(2000)
+  def pause = {Thread.sleep(2000); moves=0 }
 
   def moveLeft(g:board) = g.map(rowLeft)
   def printLeft(g:board) = {print(g,"Left"); moveLeft(g)}
@@ -66,29 +69,42 @@ object twentyfortyeight extends App {
   def moveRite(g:board) = g.map(rowRite)
   def printRite(g:board) = {print(g,"Right"); moveRite(g)}
 
-  def moveUp(g:board) = antiClockwise(moveLeft(antiClockwise(g)))
+  def moveUp(g:board) = clockwise(moveLeft(clockwise(g)))
   def printUp(g:board) = { print(g,"Up"); moveUp(g) }
 
   def moveDn(g:board) = clockwise(moveRite(clockwise(g)))
   def printDn(g:board) = {print(g,"Down"); moveDn(g)}
 
-  def antiClockwise(g:board) = List(3,2,1,0).map {
-    i => g.map { row =>row(i) }
+  def clockwise(g:board) = List(0,1,2,3).map {
+    i => g.map { row => row(i) }
   }
 
-  def clockwise(g:board) = List(0,1,2,3).map {
-    i=> g.map { row => row(i) }
-  }
+  def notDone(g:board) = next(g) != g
+
+  def drur =  printDn _    andThen next _ andThen
+              printRite _  andThen next _ andThen
+              printUp _    andThen next _ andThen
+              printRite _  andThen next
+
+  def dldr =  printDn _    andThen next _ andThen
+              printLeft _  andThen next _ andThen
+              printDn _    andThen next _ andThen
+              printRite _  andThen next
 
   def drdl =  printDn _    andThen next _ andThen
               printRite _  andThen next _ andThen
               printDn _    andThen next _ andThen
               printLeft _  andThen next
 
+  def dlul =  printDn _    andThen next _ andThen
+              printLeft _  andThen next _ andThen
+              printUp _    andThen next _ andThen
+              printLeft _  andThen next
+
   for(i<- 1 to 100) {
-    val boards = Iterator.iterate(start)({pause;drdl;}).takeWhile{g=>emptySpot(g).isDefined}.toList
+    val strategy = drdl // change this to your fav strategy
+    val boards = Iterator.iterate(start)(strategy).takeWhile(notDone).toList
     printf("%d\t%d\t%d\n", i,boards.size, max(boards.last))
     pause
-    moves=0
   }
 }
