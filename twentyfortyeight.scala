@@ -6,7 +6,10 @@
 object twentyfortyeight extends App {
   type row = List[Int]
   type board = List[row]
-  var log = true
+
+  // throwaways, not used in game, used purely for printf
+  var log = true // enable/disable printf
+  var moves:Int = 0 // track how many moves we play
 
   def blank:board = List.fill[row](4)(List.fill[Int](4)(0))
 
@@ -41,7 +44,6 @@ object twentyfortyeight extends App {
 
   def sum(g:board):Int = g.flatten.sum
 
-  var moves:Int = 0 // throwaway var to track how many moves we play
   def print(g:board, direction:String="") = {
     printf("\n%d.%s\n", { moves += 1; moves} , direction)
     printf("/%s\\\n", dash(top=true))
@@ -51,8 +53,7 @@ object twentyfortyeight extends App {
     }
   }
 
-  def slide(r:row) =
-    r./:(List.empty[Int])((l,b) => if (b==0) l else b::l).reverse
+  def slide(r:row) = r./:(List.empty[Int])((l,b) => if (b==0) l else b::l).reverse
 
   def padRite(r:row) = List.tabulate[Int](4){i=> if (i<r.size) r(i) else 0}
 
@@ -96,20 +97,11 @@ object twentyfortyeight extends App {
     moveDn(g)
   }
 
-  def clockwise(g:board) = List(0,1,2,3).map {
-    i => g.map { row => row(i) }
-  }
+  def clockwise(g:board) = List(0,1,2,3).map { i => g.map (row => row(i) )}
 
-  def notDone(gp:(board, Option[Int])) = {
-    val (g,prev) = gp
-    (emptySpot(g).isDefined) ||
-    (moveLeft(g) != g) ||
-    (moveRite(g) != g) ||
-    (moveDn(g) != g) ||
-    (moveUp(g) != g)
-  }
+  def notDone(gp:(board, Option[Int])):Boolean = notDone(gp._1)
 
-  def notDone(g:board) = {
+  def notDone(g:board):Boolean = {
     (emptySpot(g).isDefined) ||
     (moveLeft(g) != g) ||
     (moveRite(g) != g) ||
@@ -142,11 +134,8 @@ object twentyfortyeight extends App {
       }.map { i =>
         val strat = func(i)
         val b = strat(g)
-        val score:Int = max(b)// + sum(b)
-        //println
-        val tup = (score,i)
-        //println(tup)
-        tup
+        val score:Int = max(b)
+        (score,i)
       }
     ).maxBy(x=> x._1)._2
     val tup = (next(func(best)(g)), Some(best))
@@ -165,7 +154,6 @@ object twentyfortyeight extends App {
         val strat = func(direction)
         val gg = strat(g)
         val spots = emptySpots(gg)
-        //println("Choices:" + spots.size)
         val score = spots.map {
           spot =>
             val umax = max(moveUp(next(gg, spot)))
@@ -174,11 +162,8 @@ object twentyfortyeight extends App {
             val rmax = max(moveRite(next(gg, spot)))
             List(umax,dmax,lmax,rmax).max
         }.sum/(1.0d+spots.size)
-        val tup = (direction,score)
-        //println(tup)
-        tup
+        (direction,score)
     }.maxBy(x=>x._2)._1
-    //println("Best Strat:" + bestStrat)
     next(func(bestStrat)(g))
   }
 
@@ -208,9 +193,8 @@ object twentyfortyeight extends App {
     }
   }
 
-
-  //runCyclic(100,drur)
-  //runGreedy(100)
+  runCyclic(10,drur)
+  runGreedy(10)
   log = false
-  runExpectimax(100)
+  runExpectimax(10)
 }
